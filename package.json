@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@react-three/drei": "latest",
@@ -19,13 +21,19 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "latest",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@types/three": "latest",
+    "@vitejs/plugin-react": "^4.3.4",
     "eslint": "latest",
     "eslint-config-next": "latest",
+    "jsdom": "^29.1.1",
     "tailwindcss": "latest",
-    "typescript": "latest"
+    "typescript": "latest",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^3.2.4"
   }
 }

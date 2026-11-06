@@ -305,6 +305,40 @@ export function Configurator() {
     setExportOpen(false);
   };
 
+  const downloadTechnicalSheet = () => {
+    const fileBase = projectFileName(projectName).replace(/\.json$/, "");
+    const dimensions = [
+      ["Largura do assento", `${config.seatWidth} cm`],
+      ["Profundidade do assento", `${config.seatDepth} cm`],
+      ["Altura do assento", `${config.seatHeight} cm`],
+      ["Altura do encosto", `${config.backrestHeight} cm`],
+      ["Largura externa estimada", `${externalWidth} cm`],
+      ["Roda traseira", `${config.wheelSize}\"`],
+      ["Capacidade de referência", `${config.designCapacityKg} kg`],
+      ["Referência SUS", config.susReferenceProfile === "custom" ? "Personalizado" : SUS_REFERENCE_PROFILES[config.susReferenceProfile].name],
+      ["Montagem", config.printAssemblyMode === "kit" ? `Kit impresso · pino Ø${config.printConnectorDiameter} mm · folga ${config.printClearance.toFixed(2).replace(".", ",")} mm` : "Modelo integrado"],
+    ];
+    const content = [
+      "MOVINN — FICHA TÉCNICA DE CONFIGURAÇÃO",
+      `Projeto: ${projectName}`,
+      `Gerado: ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date())}`,
+      "",
+      "DIMENSÕES E CONFIGURAÇÃO",
+      ...dimensions.map(([label, value]) => `${label}: ${value}`),
+      "",
+      "COMPONENTES",
+      ...billOfMaterials.map((item) => `${item.code} — ${item.name}: ${item.specification} (${item.weightKg.toFixed(2).replace(".", ",")} kg)`),
+      `Peso estimado do conjunto: ${estimatedWeight.toFixed(2).replace(".", ",")} kg`,
+      "",
+      "AVISOS",
+      "Documento de configuração e prototipagem; não certifica segurança clínica, estrutural ou de fabricação.",
+      "Medidas de referência SUS não substituem prescrição individual por profissional habilitado.",
+      ...(config.printAssemblyMode === "kit" ? ["Pinos e encaixes impressos exigem validação física; não são uniões estruturais para transporte de pessoa."] : []),
+    ].join("\n");
+    triggerDownload(new Blob([content], { type: "text/plain;charset=utf-8" }), `${fileBase}-ficha-tecnica.txt`);
+    setNotice("Ficha técnica baixada.");
+  };
+
   const getExportObject = () => {
     if (!modelObject) return null;
     modelObject.updateWorldMatrix(true, true);
@@ -698,6 +732,7 @@ export function Configurator() {
               <button onClick={() => downloadGeometry("stl")} disabled={!modelObject || exporting !== null}><b>{exporting === "stl" ? "Gerando…" : "Baixar STL"}</b><small>Prototipagem e impressão 3D</small></button>
               <button onClick={() => downloadGeometry("glb")} disabled={!modelObject || exporting !== null}><b>{exporting === "glb" ? "Gerando…" : "Baixar GLB"}</b><small>Materiais e hierarquia 3D</small></button>
               <button onClick={exportProject}><b>Baixar JSON</b><small>Parâmetros técnicos do projeto</small></button>
+              <button onClick={downloadTechnicalSheet}><b>Baixar ficha técnica</b><small>Dimensões, materiais e avisos em texto</small></button>
               <button onClick={() => downloadGeometry("blend")} disabled={!modelObject || exporting !== null}><b>{exporting === "blend" ? "Gerando…" : "Baixar BLEND"}</b><small>Conversão pelo worker Blender</small></button>
             </div>
           </section>
@@ -728,7 +763,7 @@ export function Configurator() {
                 </article>
               ))}
             </div>
-            <footer><small>Documento conceitual · revisão 02</small><button onClick={exportProject}><Download size={16} /> Exportar dados técnicos</button></footer>
+            <footer><small>Documento conceitual · revisão 02</small><button onClick={downloadTechnicalSheet}><Download size={16} /> Baixar ficha técnica</button></footer>
           </section>
         </div>
       )}

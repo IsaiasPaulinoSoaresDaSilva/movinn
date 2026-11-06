@@ -35,6 +35,7 @@ Acesse `http://localhost:3000`.
 - Validação de compatibilidade entre medidas, rodas e apoio para os pés.
 - Lista de materiais e ficha técnica dinâmica.
 - Exportação JSON com configuração, compatibilidade e componentes selecionados.
+- Download de ficha técnica em texto com dimensões, materiais, componentes, peso estimado e avisos de uso.
 - Biblioteca local com múltiplos projetos, troca rápida e duplicação de configurações.
 - Migração automática da configuração antiga para o novo formato de projetos.
 - Modelo procedural em escala métrica, organizado por módulos nomeados.
