@@ -22,3 +22,5 @@ pnpm-debug.log*
 # typescript
 *.tsbuildinfo
 .vercel
+/test-results/
+/playwright-report/

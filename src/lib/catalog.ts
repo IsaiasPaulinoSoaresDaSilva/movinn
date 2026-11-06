@@ -68,6 +68,8 @@ export type CatalogItem = {
   name: string;
   specification: string;
   weightKg: number;
+  version: string;
+  validationStatus: "demonstrative" | "prototype" | "validated";
 };
 
 export type CompatibilityIssue = {
@@ -299,7 +301,7 @@ export function getBillOfMaterials(config: ChairConfig): CatalogItem[] {
   const tubeMassFactor = (config.frameTubeDiameter - 28.6) * 0.045
     + (config.frameWallThickness - 2) * 0.42;
 
-  const items: CatalogItem[] = [
+  const items: Omit<CatalogItem, "version" | "validationStatus">[] = [
     {
       code: "FRM-A01",
       category: "Estrutura",
@@ -378,7 +380,11 @@ export function getBillOfMaterials(config: ChairConfig): CatalogItem[] {
     });
   }
 
-  return items;
+  return items.map((item) => ({
+    ...item,
+    version: "MVP-0.1",
+    validationStatus: item.code === "PRT-KIT" ? "prototype" : "demonstrative",
+  }));
 }
 
 export function getEstimatedWeight(config: ChairConfig) {

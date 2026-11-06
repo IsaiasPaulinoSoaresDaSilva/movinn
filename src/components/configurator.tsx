@@ -45,6 +45,8 @@ import {
   updateProject,
   type MovinnProject,
 } from "@/lib/projects";
+import { INITIAL_CONFIG } from "@/lib/config";
+import { useConfigStore } from "@/lib/config-store";
 import { MovinnLogo, MovinnMark } from "./movinn-logo";
 
 const ChairViewer = dynamic(() => import("./wheelchair-model").then((mod) => mod.ChairViewer), {
@@ -52,46 +54,7 @@ const ChairViewer = dynamic(() => import("./wheelchair-model").then((mod) => mod
   loading: () => <div className="viewer-loading">Preparando modelo 3D…</div>,
 });
 
-const initialConfig: ChairConfig = {
-  frameColor: "#0B1F3B",
-  upholsteryColor: "#202628",
-  seatWidth: 42,
-  seatDepth: 43,
-  seatHeight: 49,
-  wheelSize: 24,
-  wheelStyle: "spoke",
-  footrest: "single",
-  pushHandles: true,
-  frameType: "rigid",
-  backrestHeight: 42,
-  seatAngle: 3,
-  camber: 2,
-  casterSize: 5,
-  armrest: "none",
-  antiTip: true,
-  cushion: "standard",
-  seatBaseThickness: 5,
-  seatFrontRise: 2,
-  seatLateralSupport: 1,
-  seatPommelHeight: 0,
-  frameTubeDiameter: 28.6,
-  frameWallThickness: 2,
-  rearAxlePosition: -5,
-  casterTrail: 4.5,
-  backrestRecline: 8,
-  backrestLumbarSupport: 2,
-  backrestWingDepth: 3,
-  axlePlateThickness: 6,
-  axlePlateTravel: 5,
-  footrestHeight: 14,
-  footrestAngle: 5,
-  footrestExtension: 4,
-  susReferenceProfile: "custom",
-  designCapacityKg: 100,
-  printAssemblyMode: "integrated",
-  printConnectorDiameter: 8,
-  printClearance: 0.35,
-};
+const initialConfig = INITIAL_CONFIG;
 
 type Section = "medidas" | "assento" | "estrutura" | "rodas" | "acabamento";
 
@@ -174,7 +137,9 @@ function Choice<T extends string>({ label, value, options, onChange }: { label: 
 }
 
 export function Configurator() {
-  const [config, setConfig] = useState<ChairConfig>(initialConfig);
+  const config = useConfigStore((state) => state.config);
+  const setConfig = useConfigStore((state) => state.setConfig);
+  const resetConfig = useConfigStore((state) => state.resetConfig);
   const [active, setActive] = useState<Section>("medidas");
   const [menuOpen, setMenuOpen] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -189,6 +154,7 @@ export function Configurator() {
   const [exportPart, setExportPart] = useState<ExportPartId>("MODULE_SEATING");
   const [selectedPart, setSelectedPart] = useState<ModelPartId>("MODULE_SEATING");
   const [notice, setNotice] = useState("");
+  const [printRequested, setPrintRequested] = useState(false);
   const viewerRef = useRef<HTMLElement>(null);
   const activeProject = projects.find((project) => project.id === activeProjectId);
   const projectName = activeProject?.name ?? "MOVINN Active 01";
@@ -259,7 +225,7 @@ export function Configurator() {
       setConfig(restored);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, []);
+  }, [setConfig]);
 
   useEffect(() => {
     if (!notice) return;
@@ -281,6 +247,15 @@ export function Configurator() {
     window.addEventListener("keydown", closeOnEscape);
     return () => { document.body.style.overflow = previousOverflow; window.removeEventListener("keydown", closeOnEscape); };
   }, [exportOpen, technicalOpen, projectsOpen]);
+
+  useEffect(() => {
+    if (!printRequested || !technicalOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      window.print();
+      setPrintRequested(false);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [printRequested, technicalOpen]);
 
   const saveProject = () => {
     if (!activeProject) return;
@@ -327,7 +302,7 @@ export function Configurator() {
       ...dimensions.map(([label, value]) => `${label}: ${value}`),
       "",
       "COMPONENTES",
-      ...billOfMaterials.map((item) => `${item.code} — ${item.name}: ${item.specification} (${item.weightKg.toFixed(2).replace(".", ",")} kg)`),
+      ...billOfMaterials.map((item) => `${item.code} v${item.version} [${item.validationStatus}] — ${item.name}: ${item.specification} (${item.weightKg.toFixed(2).replace(".", ",")} kg)`),
       `Peso estimado do conjunto: ${estimatedWeight.toFixed(2).replace(".", ",")} kg`,
       "",
       "AVISOS",
@@ -337,6 +312,12 @@ export function Configurator() {
     ].join("\n");
     triggerDownload(new Blob([content], { type: "text/plain;charset=utf-8" }), `${fileBase}-ficha-tecnica.txt`);
     setNotice("Ficha técnica baixada.");
+  };
+
+  const printTechnicalSheet = () => {
+    setExportOpen(false);
+    setTechnicalOpen(true);
+    setPrintRequested(true);
   };
 
   const getExportObject = () => {
@@ -480,7 +461,8 @@ export function Configurator() {
   };
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" id="configurator-main" tabIndex={-1}>
+      <a className="skip-link" href="#configurator-controls">Pular para os controles de configuração</a>
       <header className="topbar">
         <button className="brand" aria-label="Abrir projetos" onClick={() => setProjectsOpen(true)}><MovinnLogo /></button>
         <div className="project-title">
@@ -495,7 +477,7 @@ export function Configurator() {
         </div>
       </header>
 
-      <aside className={menuOpen ? "tool-rail open" : "tool-rail"}>
+      <aside className={menuOpen ? "tool-rail open" : "tool-rail"} aria-label="Seções do configurador">
         <button className="back-button" onClick={() => { setProjectsOpen(true); setMenuOpen(false); }}><ChevronLeft size={19} /> Projetos</button>
         <nav>
           {sections.map(({ id, label, icon: Icon }) => (
@@ -511,7 +493,7 @@ export function Configurator() {
         </div>
       </aside>
 
-      <section className="controls-panel">
+      <section className="controls-panel" id="configurator-controls" aria-label="Controles de configuração">
         <div className="panel-heading">
           <span>{sections.find((section) => section.id === active)?.label}</span>
           <h1>{active === "medidas" ? "Ajuste ao seu corpo" : active === "assento" ? "Modele a superfície" : active === "estrutura" ? "Defina a estrutura" : active === "rodas" ? "Escolha o conjunto de rodas" : "Dê identidade à cadeira"}</h1>
@@ -663,13 +645,14 @@ export function Configurator() {
           )}
         </div>
         <div className="panel-footer">
-          <button onClick={() => { setConfig(initialConfig); setDirty(true); }}><RotateCcw size={16} /> Restaurar padrão</button>
+          <button onClick={() => { resetConfig(); setDirty(true); }}><RotateCcw size={16} /> Restaurar padrão</button>
           <span>V10 · kit de impressão</span>
         </div>
       </section>
 
-      <section className="viewer-panel" ref={viewerRef}>
+      <section className="viewer-panel" ref={viewerRef} aria-label="Visualização tridimensional da cadeira">
         <ChairViewer config={config} onModelReady={setModelObject} selectedModule={selectedPart} onSelectModule={selectPart} />
+        <p className="sr-only">Modelo 3D demonstrativo. Use a lista de módulos e os controles de configuração como alternativa completa à seleção com o ponteiro.</p>
         <div className="viewer-caption"><Eye size={16} /><span>Arraste para girar · role para aproximar</span></div>
         <div className="selection-readout"><span>Em edição</span><b>{exportParts.find((part) => part.id === selectedPart)?.name}</b><small>Clique em outro módulo para trocar</small></div>
         <button className="viewer-export-button" aria-label="Exportar uma peça" onClick={() => setExportOpen(true)}><Download size={17} /><span>Exportar peça</span></button>
@@ -727,12 +710,14 @@ export function Configurator() {
                 </button>;
               })}
             </div>
+            <div className="manufacturing-notice" role="note"><AlertTriangle size={17} /><span><b>Pré-checagem de fabricação pendente</b><small>O STL exporta a geometria visual em milímetros. Malha fechada, espessura mínima, tolerâncias, orientação de impressão e resistência ainda precisam de verificação externa antes de qualquer fabricação.</small></span></div>
             <div className="export-formats">
               <div><span>Formato de saída</span><small>STL é convertido para milímetros; GLB permanece em metros.</small></div>
-              <button onClick={() => downloadGeometry("stl")} disabled={!modelObject || exporting !== null}><b>{exporting === "stl" ? "Gerando…" : "Baixar STL"}</b><small>Prototipagem e impressão 3D</small></button>
+              <button onClick={() => downloadGeometry("stl")} disabled={!modelObject || exporting !== null}><b>{exporting === "stl" ? "Gerando…" : "Baixar STL"}</b><small>Geometria de prototipagem; não qualificada para fabricação</small></button>
               <button onClick={() => downloadGeometry("glb")} disabled={!modelObject || exporting !== null}><b>{exporting === "glb" ? "Gerando…" : "Baixar GLB"}</b><small>Materiais e hierarquia 3D</small></button>
               <button onClick={exportProject}><b>Baixar JSON</b><small>Parâmetros técnicos do projeto</small></button>
               <button onClick={downloadTechnicalSheet}><b>Baixar ficha técnica</b><small>Dimensões, materiais e avisos em texto</small></button>
+              <button onClick={printTechnicalSheet}><b>Salvar ficha em PDF</b><small>Abre a impressão do navegador</small></button>
               <button onClick={() => downloadGeometry("blend")} disabled={!modelObject || exporting !== null}><b>{exporting === "blend" ? "Gerando…" : "Baixar BLEND"}</b><small>Conversão pelo worker Blender</small></button>
             </div>
           </section>
@@ -759,11 +744,11 @@ export function Configurator() {
             <div className="bom-list">
               {billOfMaterials.map((item) => (
                 <article key={item.code}>
-                  <span>{item.category}</span><div><b>{item.name}</b><small>{item.specification}</small></div><code>{item.code}</code><strong>{item.weightKg.toFixed(2).replace(".", ",")} kg</strong>
+                  <span>{item.category}</span><div><b>{item.name}</b><small>{item.specification} · v{item.version} · {item.validationStatus === "prototype" ? "protótipo" : "demonstrativo"}</small></div><code>{item.code}</code><strong>{item.weightKg.toFixed(2).replace(".", ",")} kg</strong>
                 </article>
               ))}
             </div>
-            <footer><small>Documento conceitual · revisão 02</small><button onClick={downloadTechnicalSheet}><Download size={16} /> Baixar ficha técnica</button></footer>
+            <footer><small>Documento conceitual · revisão 02</small><button onClick={printTechnicalSheet}><Download size={16} /> Salvar como PDF</button></footer>
           </section>
         </div>
       )}
@@ -792,11 +777,12 @@ export function Configurator() {
                 );
               })}
             </div>
+            {activeProject && <section className="project-history" aria-labelledby="project-history-title"><h3 id="project-history-title">Histórico recente</h3><ol>{activeProject.history.slice(-5).reverse().map((entry) => <li key={entry.id}><b>{entry.summary}</b><time>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.createdAt))}</time></li>)}</ol></section>}
             <footer><span>{projects.length} {projects.length === 1 ? "projeto salvo" : "projetos salvos"} neste dispositivo</span><small>Sincronização em nuvem será adicionada na próxima integração.</small></footer>
           </section>
         </div>
       )}
-      {notice && <div className="app-notice" role="status"><span>{notice}</span><button aria-label="Fechar aviso" onClick={() => setNotice("")}><X size={15} /></button></div>}
+      {notice && <div className="app-notice" role="status" aria-live="polite"><span>{notice}</span><button aria-label="Fechar aviso" onClick={() => setNotice("")}><X size={15} /></button></div>}
     </main>
   );
 }

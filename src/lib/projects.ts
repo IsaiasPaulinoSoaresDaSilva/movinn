@@ -7,6 +7,13 @@ export type MovinnProject = {
   createdAt: string;
   updatedAt: string;
   config: ChairConfig;
+  history: ProjectHistoryEntry[];
+};
+
+export type ProjectHistoryEntry = {
+  id: string;
+  createdAt: string;
+  summary: string;
 };
 
 type ProjectLibrary = {
@@ -27,6 +34,7 @@ export function createMovinnProject(name: string, config: ChairConfig): MovinnPr
     createdAt: now,
     updatedAt: now,
     config: { ...config },
+    history: [{ id: crypto.randomUUID(), createdAt: now, summary: "Projeto criado" }],
   };
 }
 
@@ -36,7 +44,7 @@ export function loadProjectLibrary(defaultConfig: ChairConfig): ProjectLibrary {
     try {
       const library = JSON.parse(stored) as ProjectLibrary;
       if (library.schemaVersion === 1 && Array.isArray(library.projects) && library.projects.length > 0) {
-        const projects = library.projects.map((project) => ({ ...project, config: { ...defaultConfig, ...project.config } }));
+        const projects = library.projects.map((project) => ({ ...project, config: { ...defaultConfig, ...project.config }, history: project.history ?? [{ id: project.id, createdAt: project.updatedAt, summary: "Configuração migrada" }] }));
         const activeExists = library.projects.some((project) => project.id === library.activeProjectId);
         return { ...library, projects, activeProjectId: activeExists ? library.activeProjectId : projects[0].id };
       }
@@ -69,7 +77,11 @@ export function saveProjectLibrary(projects: MovinnProject[], activeProjectId: s
 }
 
 export function updateProject(project: MovinnProject, config: ChairConfig): MovinnProject {
-  return { ...project, config: { ...config }, updatedAt: new Date().toISOString() };
+  const now = new Date().toISOString();
+  const changed = Object.keys(config).filter((key) => config[key as keyof ChairConfig] !== project.config[key as keyof ChairConfig]);
+  const history = project.history ?? [];
+  const summary = changed.length === 0 ? "Projeto salvo" : `${changed.length} ${changed.length === 1 ? "parâmetro atualizado" : "parâmetros atualizados"}`;
+  return { ...project, config: { ...config }, updatedAt: now, history: [...history, { id: crypto.randomUUID(), createdAt: now, summary }].slice(-20) };
 }
 
 export function projectFileName(name: string) {
